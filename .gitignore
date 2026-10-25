@@ -1,0 +1,12 @@
+# Build artefacts and generated mockups
+build/
+generated/
+KR_BUILD/
+*.exe
+*.obj
+*.o
+*.log
+release/
+*.zip
+
+# Keep the source release binary out of Git; it is attached to GitHub Releases.
