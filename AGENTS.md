@@ -9,6 +9,7 @@ Arbeite auf Basis eines von MockupCppConverter generierten Ordners. `mockup.html
 - `<name>_template.cpp`: C++-Einstiegspunkt, der das Referenz-Mockup startet.
 - `mockup.html`: verbindliches Layout, CSS, Tailwind-Klassen, Texte und Interaktionen.
 - `IMPLEMENTATION_MAP.json`: maschinenlesbarer Backlog der erkannten Controls; jedes Element enthält `id`, `event`, `required_handler` und `status`.
+- `AI_HANDOFF.md`: vollständige Ein-Datei-Übergabe mit allen vorgenannten Artefakten. Verwende sie, wenn nur eine Datei übergeben werden kann.
 
 Alle Dateien gehören zusammen. Eine C++-Datei allein enthält bewusst keine vollständige CSS-Rendering-Engine.
 
