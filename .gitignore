@@ -1,6 +1,7 @@
 # Build artefacts and generated mockups
 build/
 generated/
+test-output/
 KR_BUILD/
 *.exe
 *.obj
