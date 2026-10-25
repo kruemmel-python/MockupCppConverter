@@ -11,7 +11,7 @@
 
 namespace fs = std::filesystem;
 
-struct Node { std::wstring tag, text, classes; int depth = 0; };
+struct Node { std::wstring tag, text, classes, id, action; int depth = 0; };
 struct Analysis { std::wstring title; std::vector<Node> nodes; int buttons=0, inputs=0, headings=0; };
 
 static HWND g_file, g_output, g_status, g_stats;
@@ -41,7 +41,7 @@ static Analysis Analyze(const fs::path& file) {
     std::wregex tagR(LR"(<(/?)(header|nav|main|aside|section|article|div|p|h1|h2|h3|h4|button|input|textarea|select|img)[^>]*>)",std::regex::icase);
     std::wsregex_iterator it(h.begin(),h.end(),tagR), end; int depth=0;
     for(;it!=end;++it) { std::wstring raw=(*it)[0], tag; std::wsmatch nameMatch; std::regex_search(raw,nameMatch,std::wregex(LR"(<\s*/?\s*([a-zA-Z0-9]+))")); if(nameMatch.size()>1) tag=nameMatch[1].str(); std::transform(tag.begin(),tag.end(),tag.begin(),towlower); bool close=raw.size()>1 && raw[1]==L'/'; if(close) { depth=std::max(0,depth-1); continue; }
-        Node n{tag,L"",Attr(raw,L"class"),depth}; auto next=it; ++next; size_t from=it->position()+it->length(), to=next==end?h.size():(size_t)next->position(); n.text=HtmlText(h.substr(from,to-from)); if(n.tag==L"input"||n.tag==L"textarea") n.text=Attr(raw,L"placeholder"); if(n.tag==L"img") n.text=Attr(raw,L"alt");
+        Node n{tag,L"",Attr(raw,L"class"),Attr(raw,L"id"),Attr(raw,L"onclick"),depth}; auto next=it; ++next; size_t from=it->position()+it->length(), to=next==end?h.size():(size_t)next->position(); n.text=HtmlText(h.substr(from,to-from)); if(n.tag==L"input"||n.tag==L"textarea") n.text=Attr(raw,L"placeholder"); if(n.tag==L"img") n.text=Attr(raw,L"alt");
         if(!n.text.empty()||n.tag==L"button"||n.tag==L"input"||n.tag==L"textarea"||n.tag==L"select"||n.tag==L"img") a.nodes.push_back(n);
         if(n.tag==L"button")a.buttons++; if(n.tag==L"input"||n.tag==L"textarea"||n.tag==L"select")a.inputs++; if(n.tag.size()==2&&n.tag[0]==L'h')a.headings++;
         if(!raw.empty() && raw.back()!=L'/' && n.tag!=L"input" && n.tag!=L"img") depth++;
@@ -54,6 +54,31 @@ static int Color(const std::wstring& cls, bool text=false) {
     if(cls.find(L"purple")!=std::wstring::npos) return text?0x00FAF0FF:0x00A06080;
     if(cls.find(L"slate")!=std::wstring::npos||cls.find(L"gray")!=std::wstring::npos) return text?0x00E8E8E8:0x00302C28;
     return text?0x00E9E6E2:0x00231F1B;
+}
+static std::wstring Identifier(std::wstring value) {
+    std::wstring result; bool upper=true;
+    for(wchar_t c:value) { bool alpha=(c>=L'a'&&c<=L'z')||(c>=L'A'&&c<=L'Z')||(c>=L'0'&&c<=L'9'); if(!alpha){upper=true;continue;} if(upper&&c>=L'a'&&c<=L'z')c-=32; result+=c; upper=false; }
+    if(result.empty()) result=L"UnnamedControl"; if(result[0]>=L'0'&&result[0]<=L'9') result=L"Control"+result; return result;
+}
+static std::wstring AgentBrief(const Analysis& a, const std::wstring& sourceName) {
+    std::wstringstream o;
+    o<<L"# KI-Arbeitsauftrag: "<<(a.title.empty()?sourceName:a.title)<<L"\n\n";
+    o<<L"## Verbindliche Quellen\n\n- `mockup.html` ist die unveränderte visuelle und Interaktionsreferenz.\n- `"<<sourceName<<L"_template.cpp` startet die Fidelity-Ansicht.\n- Diese Datei beschreibt nur den Implementierungsauftrag; sie ersetzt weder HTML noch C++.\n\n";
+    o<<L"## Architektur-Grenze\n\n- **GUI-Schicht:** Ereignisse entgegennehmen, Werte anzeigen, View-Model aktualisieren. Keine fachlichen Entscheidungen, Datenzugriffe oder Geschäftsregeln.\n- **Geschäftslogik:** eigenständige C++-Services/Use-Cases. Keine Win32-, Edge-, HTML- oder CSS-Abhängigkeit.\n- **Vertrag:** Die GUI ruft benannte Methoden auf; Services geben Ergebnisdaten/Fehler zurück. Das Design in `mockup.html` bleibt unverändert.\n\n";
+    o<<L"## Erkannte interaktive Bedienelemente\n\n| Typ | Sichtbare Bezeichnung | Vorgeschlagener GUI-Handler | Geschäftslogik-Vertrag | HTML-Hinweis |\n|---|---|---|---|---|\n";
+    int unnamed=1;
+    for(const auto& n:a.nodes) {
+        bool button=n.tag==L"button", input=n.tag==L"input"||n.tag==L"textarea", select=n.tag==L"select";
+        if(!button&&!input&&!select) continue;
+        std::wstring label=n.text.empty()?n.id:n.text; if(label.empty()) label=L"Unbenanntes Element "+std::to_wstring(unnamed++);
+        std::wstring base=Identifier(n.id.empty()?label:n.id), handler, contract;
+        if(button){handler=L"GuiController::On"+base+L"Clicked()"; contract=L"AppService::"+base+L"()";}
+        else if(select){handler=L"GuiController::On"+base+L"Changed(value)"; contract=L"AppService::Set"+base+L"(value)";}
+        else {handler=L"GuiController::On"+base+L"Changed(value)"; contract=L"ViewModel::"+base+L" = value";}
+        o<<L"| `"<<n.tag<<L"` | "<<label<<L" | `"<<handler<<L"` | `"<<contract<<L"` | `"<<(n.id.empty()?n.classes:n.id)<<L"` |\n";
+    }
+    o<<L"\n## Implementierungsregeln\n\n1. Prüfe jeden Handler gegen `mockup.html`, bevor du ihn implementierst.\n2. Ergänze Funktionen zunächst als Interfaces/Services in der Geschäftslogik und verbinde sie danach mit dem GUI-Handler.\n3. Verändere HTML-Struktur, Tailwind-Klassen, Texte oder Layout nur auf ausdrückliche Produktanforderung.\n4. Dokumentiere neue Funktionen in dieser Tabelle oder einer zugehörigen Use-Case-Datei.\n";
+    return o.str();
 }
 static std::wstring Generated(const Analysis& a) {
     // Fidelity mode: keep the original browser document intact and generate a native C++ Edge app launcher.
@@ -81,6 +106,6 @@ static std::wstring Generated(const Analysis& a) {
 static void Set(HWND h,const std::wstring& s){SetWindowTextW(h,s.c_str());}
 static std::wstring Get(HWND h){int n=GetWindowTextLengthW(h);std::wstring s(n,L' ');GetWindowTextW(h,s.data(),n+1);return s;}
 static void Browse(HWND target,bool folder){ wchar_t path[MAX_PATH]={}; if(folder){ BROWSEINFOW b{}; b.hwndOwner=GetActiveWindow(); b.lpszTitle=L"Ausgabeordner auswählen"; PIDLIST_ABSOLUTE id=SHBrowseForFolderW(&b); if(id){SHGetPathFromIDListW(id,path);CoTaskMemFree(id);} }else{ OPENFILENAMEW o{};o.lStructSize=sizeof(o);o.hwndOwner=GetActiveWindow();o.lpstrFilter=L"HTML-Dateien\0*.html;*.htm\0Alle Dateien\0*.*\0";o.lpstrFile=path;o.nMaxFile=MAX_PATH;o.Flags=OFN_FILEMUSTEXIST;if(!GetOpenFileNameW(&o))return;} if(path[0])Set(target,path); }
-static void Convert(){ try { auto file=fs::path(Get(g_file)); auto out=fs::path(Get(g_output)); if(!fs::is_regular_file(file)){Set(g_status,L"Bitte zuerst eine gültige HTML-Datei wählen.");return;} if(out.empty())out=file.parent_path(); std::error_code ec;fs::create_directories(out,ec); if(ec){Set(g_status,std::wstring(L"Ausgabeordner kann nicht erstellt werden: ")+W(ec.message()));return;} fs::copy_file(file,out/L"mockup.html",fs::copy_options::overwrite_existing,ec); if(ec){Set(g_status,std::wstring(L"HTML-Datei konnte nicht kopiert werden: ")+W(ec.message()));return;} auto a=Analyze(file); auto dest=out/(file.stem().wstring()+L"_template.cpp");std::ofstream f(dest,std::ios::binary);if(!f){Set(g_status,L"Ausgabedatei kann nicht geschrieben werden.");return;}f<<U(Generated(a));Set(g_status,L"Erstellt: "+dest.wstring()+L" + mockup.html (Edge-Fidelity-Modus)");Set(g_stats,L"Analyse: "+std::to_wstring(a.nodes.size())+L" sichtbare Elemente  |  "+std::to_wstring(a.buttons)+L" Buttons  |  "+std::to_wstring(a.inputs)+L" Eingaben");} catch(const std::exception& e) { Set(g_status,std::wstring(L"Analysefehler: ")+W(e.what())); } }
+static void Convert(){ try { auto file=fs::path(Get(g_file)); auto out=fs::path(Get(g_output)); if(!fs::is_regular_file(file)){Set(g_status,L"Bitte zuerst eine gültige HTML-Datei wählen.");return;} if(out.empty())out=file.parent_path(); std::error_code ec;fs::create_directories(out,ec); if(ec){Set(g_status,std::wstring(L"Ausgabeordner kann nicht erstellt werden: ")+W(ec.message()));return;} fs::copy_file(file,out/L"mockup.html",fs::copy_options::overwrite_existing,ec); if(ec){Set(g_status,std::wstring(L"HTML-Datei konnte nicht kopiert werden: ")+W(ec.message()));return;} auto a=Analyze(file); auto stem=file.stem().wstring(); auto dest=out/(stem+L"_template.cpp");std::ofstream f(dest,std::ios::binary);if(!f){Set(g_status,L"Ausgabedatei kann nicht geschrieben werden.");return;}f<<U(Generated(a));std::ofstream brief(out/(stem+L"_agent_brief.md"),std::ios::binary);if(!brief){Set(g_status,L"Agenten-Arbeitsauftrag kann nicht geschrieben werden.");return;}brief<<U(AgentBrief(a,stem));Set(g_status,L"Erstellt: C++-Vorlage, mockup.html und Agenten-Arbeitsauftrag.");Set(g_stats,L"Analyse: "+std::to_wstring(a.nodes.size())+L" sichtbare Elemente  |  "+std::to_wstring(a.buttons)+L" Buttons  |  "+std::to_wstring(a.inputs)+L" Eingaben");} catch(const std::exception& e) { Set(g_status,std::wstring(L"Analysefehler: ")+W(e.what())); } }
 static LRESULT CALLBACK MainProc(HWND w,UINT m,WPARAM p,LPARAM l){if(m==WM_COMMAND){int id=LOWORD(p);if(id==1)Browse(g_file,false);if(id==2)Browse(g_output,true);if(id==3)Convert();return 0;}if(m==WM_DESTROY)PostQuitMessage(0);return DefWindowProcW(w,m,p,l);}
 int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int){WNDCLASSW c{};c.hInstance=h;c.lpszClassName=L"MockupCppConverter";c.lpfnWndProc=MainProc;c.hCursor=LoadCursor(nullptr,IDC_ARROW);c.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);RegisterClassW(&c);HWND w=CreateWindowExW(0,c.lpszClassName,L"Mockup → C++ Converter",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_VISIBLE,260,180,720,350,nullptr,nullptr,h,nullptr);CreateWindowW(L"STATIC",L"HTML-Mockup in eine native C++/Win32-GUI-Vorlage übertragen",WS_CHILD|WS_VISIBLE,24,22,620,25,w,nullptr,h,nullptr);CreateWindowW(L"STATIC",L"Mockup-Datei",WS_CHILD|WS_VISIBLE,24,62,130,22,w,nullptr,h,nullptr);g_file=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"H:\\engine-develop\\mockups\\aura_workspace_mockup.html",WS_CHILD|WS_VISIBLE|ES_AUTOHSCROLL,24,85,535,25,w,nullptr,h,nullptr);CreateWindowW(L"BUTTON",L"Durchsuchen…",WS_CHILD|WS_VISIBLE,570,85,115,25,w,(HMENU)1,h,nullptr);CreateWindowW(L"STATIC",L"Ausgabeordner",WS_CHILD|WS_VISIBLE,24,122,150,22,w,nullptr,h,nullptr);g_output=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"H:\\engine-develop\\MockupCppConverter\\generated",WS_CHILD|WS_VISIBLE|ES_AUTOHSCROLL,24,145,535,25,w,nullptr,h,nullptr);CreateWindowW(L"BUTTON",L"Ordner…",WS_CHILD|WS_VISIBLE,570,145,115,25,w,(HMENU)2,h,nullptr);CreateWindowW(L"BUTTON",L"C++ Vorlage erzeugen",WS_CHILD|WS_VISIBLE|BS_DEFPUSHBUTTON,24,196,210,35,w,(HMENU)3,h,nullptr);g_stats=CreateWindowW(L"STATIC",L"Bereit zur Analyse.",WS_CHILD|WS_VISIBLE,24,245,650,22,w,nullptr,h,nullptr);g_status=CreateWindowW(L"STATIC",L"Erzeugt eine einzelne, editierbare .cpp-Datei ohne externe Bibliotheken.",WS_CHILD|WS_VISIBLE,24,272,650,35,w,nullptr,h,nullptr);MSG q;while(GetMessageW(&q,nullptr,0,0)){TranslateMessage(&q);DispatchMessageW(&q);} return 0; }

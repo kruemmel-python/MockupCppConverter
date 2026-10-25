@@ -4,10 +4,11 @@ Windows-Werkzeug, das eine HTML-Mockup-Datei analysiert und eine C++-Startvorlag
 
 ## Ansatz: Fidelity-Modus
 
-Tailwind, moderne CSS-Layouts und JavaScript lassen sich nicht verlustfrei in klassische Win32-Controls übersetzen. Deshalb erzeugt der Converter zwei zusammengehörige Dateien:
+Tailwind, moderne CSS-Layouts und JavaScript lassen sich nicht verlustfrei in klassische Win32-Controls übersetzen. Deshalb erzeugt der Converter drei zusammengehörige Dateien:
 
 - `<name>_template.cpp`: kompakter, ohne zusätzliche Linker-Optionen kompilierbarer C++-Launcher.
 - `mockup.html`: unveränderte visuelle Quelle des Mockups.
+- `<name>_agent_brief.md`: automatisch abgeleiteter Implementierungsauftrag für KI-Agenten, mit Bedienelementen, Handler-Vorschlägen und Architekturgrenzen.
 
 Die erzeugte EXE startet das HTML über das installierte Microsoft Edge im App-Modus. Damit bleiben CSS, Tailwind, externe Schriftarten, Icons und Interaktionen erhalten.
 
@@ -41,7 +42,7 @@ Der Build nutzt `H:\KR-Compiler\KR-Compiler-Windows-x64-v4.3.1\toolchain\bin\g++
 
 ## Übergabe an KI-Agenten
 
-Gib einem Agenten immer den gesamten erzeugten Ordner oder mindestens diese beiden Dateien: `<name>_template.cpp` und `mockup.html`. Eine ausführliche Arbeitsanweisung ist in [AGENTS.md](AGENTS.md) enthalten.
+Gib einem Agenten immer den gesamten erzeugten Ordner: `<name>_template.cpp`, `mockup.html` und `<name>_agent_brief.md`. Der Brief vermeidet eine erneute Komplettanalyse von HTML/JavaScript und legt die Grenze zwischen GUI und Geschäftslogik fest. Eine ausführliche Arbeitsanweisung ist in [AGENTS.md](AGENTS.md) enthalten.
 
 ## Einschränkungen
 
