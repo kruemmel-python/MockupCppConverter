@@ -9,6 +9,7 @@ Tailwind, moderne CSS-Layouts und JavaScript lassen sich nicht verlustfrei in kl
 - `<name>_template.cpp`: kompakter, ohne zusätzliche Linker-Optionen kompilierbarer C++-Launcher.
 - `mockup.html`: unveränderte visuelle Quelle des Mockups.
 - `<name>_agent_brief.md`: automatisch abgeleiteter Implementierungsauftrag für KI-Agenten, mit Bedienelementen, Handler-Vorschlägen und Architekturgrenzen.
+- `IMPLEMENTATION_MAP.json`: maschinenlesbare Liste aller erkannten interaktiven Komponenten mit ID, Event, vorgeschlagenem Handler und Implementierungsstatus.
 
 Die erzeugte EXE startet das HTML über das installierte Microsoft Edge im App-Modus. Damit bleiben CSS, Tailwind, externe Schriftarten, Icons und Interaktionen erhalten.
 
@@ -42,7 +43,7 @@ Der Build nutzt `H:\KR-Compiler\KR-Compiler-Windows-x64-v4.3.1\toolchain\bin\g++
 
 ## Übergabe an KI-Agenten
 
-Gib einem Agenten immer den gesamten erzeugten Ordner: `<name>_template.cpp`, `mockup.html` und `<name>_agent_brief.md`. Der Brief vermeidet eine erneute Komplettanalyse von HTML/JavaScript und legt die Grenze zwischen GUI und Geschäftslogik fest. Eine ausführliche Arbeitsanweisung ist in [AGENTS.md](AGENTS.md) enthalten.
+Gib einem Agenten immer den gesamten erzeugten Ordner: `<name>_template.cpp`, `mockup.html`, `<name>_agent_brief.md` und `IMPLEMENTATION_MAP.json`. Der Brief vermeidet eine erneute Komplettanalyse von HTML/JavaScript und legt die Grenze zwischen GUI und Geschäftslogik fest; die JSON-Datei eignet sich für automatisierte Aufgabenplanung. Eine ausführliche Arbeitsanweisung ist in [AGENTS.md](AGENTS.md) enthalten.
 
 ## Einschränkungen
 

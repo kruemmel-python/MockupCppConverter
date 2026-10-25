@@ -8,12 +8,13 @@ Arbeite auf Basis eines von MockupCppConverter generierten Ordners. `mockup.html
 
 - `<name>_template.cpp`: C++-Einstiegspunkt, der das Referenz-Mockup startet.
 - `mockup.html`: verbindliches Layout, CSS, Tailwind-Klassen, Texte und Interaktionen.
+- `IMPLEMENTATION_MAP.json`: maschinenlesbarer Backlog der erkannten Controls; jedes Element enthält `id`, `event`, `required_handler` und `status`.
 
-Beide Dateien gehören zusammen. Eine C++-Datei allein enthält bewusst keine vollständige CSS-Rendering-Engine.
+Alle Dateien gehören zusammen. Eine C++-Datei allein enthält bewusst keine vollständige CSS-Rendering-Engine.
 
 ## Arbeitsregeln
 
-1. Lies zuerst die HTML-Datei vollständig und inventarisiere Screens, Bereiche, Controls und Zustände.
+1. Lies zuerst `IMPLEMENTATION_MAP.json`; nutze die HTML-Datei nur zur visuellen und semantischen Prüfung der aufgeführten Controls.
 2. Erhalte Geometrie, Abstände, Farben, Typografie, sichtbare Texte und responsive Regeln.
 3. Verwende das laufende `mockup.html` als visuellen Soll-Zustand für jeden Vergleich.
 4. Implementiere fachliche Logik in kleinen, testbaren Schritten; ersetze den Fidelity-Modus nur, wenn die native Ansicht visuell geprüft ist.
